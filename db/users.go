@@ -96,20 +96,28 @@ func InsertUser(user Users) error {
 	}
 	defer db.Close()
 
+	// Get the next unique ID from the sequence generator
+	var id int
+	err = db.QueryRow("SELECT nextval('users_id_seq')").Scan(&id)
+	if err != nil {
+		return err
+	}
+
 	// Execute the SQL INSERT statement
-	stmt, err := db.Prepare("INSERT INTO Users(id, firstname, surname, username, email, password) VALUES ($1, $2, $3, $4, $5, $6 )")
+	stmt, err := db.Prepare("INSERT INTO Users(id, firstname, surname, username, email, password) VALUES ($1, $2, $3, $4, $5, $6)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(user.ID, user.FirstName, user.SurName, user.UserName, user.Email, user.Password)
+	_, err = stmt.Exec(id, user.FirstName, user.SurName, user.UserName, user.Email, user.Password)
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
+
 func GetUserByUsername(username string) (Users, error) {
 	conn, err := pgx.Connect(context.Background(), "postgres://exupvkwi:FQOURrIUoc19JWoXYZ6ywiC5PRTER4N-@balarama.db.elephantsql.com/exupvkwi")
 	if err != nil {
