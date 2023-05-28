@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	_ "github.com/lib/pq"
@@ -88,40 +87,11 @@ func GetUsersByIdFromDB(connection string, id int) ([]Users, error) {
 
 	return users, nil
 }
-func InsertUser(user Users) error {
-	// Open a database connection
-	db, err := sql.Open("postgres", "postgres://exupvkwi:FQOURrIUoc19JWoXYZ6ywiC5PRTER4N-@balarama.db.elephantsql.com/exupvkwi")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	// Get the next unique ID from the sequence generator
-	var id int
-	err = db.QueryRow("SELECT nextval('users_id_seq')").Scan(&id)
-	if err != nil {
-		return err
-	}
-
-	// Execute the SQL INSERT statement
-	stmt, err := db.Prepare("INSERT INTO Users(id, firstname, surname, username, email, password) VALUES ($1, $2, $3, $4, $5, $6)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	_, err = stmt.Exec(id, user.FirstName, user.SurName, user.UserName, user.Email, user.Password)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func GetUserByUsername(username string) (Users, error) {
 	conn, err := pgx.Connect(context.Background(), "postgres://exupvkwi:FQOURrIUoc19JWoXYZ6ywiC5PRTER4N-@balarama.db.elephantsql.com/exupvkwi")
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return Users{}, err
 	}
 	defer conn.Close(context.Background())
@@ -145,6 +115,29 @@ func GetUserByUsername(username string) (Users, error) {
 	return user, nil
 }
 
-func CheckPassword(userPassword string, password string) bool {
-	return userPassword == password
+func GetUserByEmail(email string) (Users, error) {
+	conn, err := pgx.Connect(context.Background(), "postgres://exupvkwi:FQOURrIUoc19JWoXYZ6ywiC5PRTER4N-@balarama.db.elephantsql.com/exupvkwi")
+	if err != nil {
+		log.Println(err)
+		return Users{}, err
+	}
+	defer conn.Close(context.Background())
+
+	row, err := conn.Query(context.Background(), "SELECT id, firstname, surname, username, email, password FROM Users WHERE email=$1", email)
+	if err != nil {
+		return Users{}, err
+	}
+	defer row.Close()
+
+	user := Users{}
+	if row.Next() {
+		err = row.Scan(&user.ID, &user.FirstName, &user.SurName, &user.UserName, &user.Email, &user.Password)
+		if err != nil {
+			return Users{}, err
+		}
+	} else {
+		return Users{}, fmt.Errorf("user not found")
+	}
+
+	return user, nil
 }

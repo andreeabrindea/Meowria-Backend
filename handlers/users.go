@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/dgrijalva/jwt-go"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -91,6 +92,7 @@ func GetUsersById(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func CreateUser(w http.ResponseWriter, r *http.Request) {
+	// Cors
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -100,7 +102,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set headers for the main request
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	w.Header().Set("Access-Control-Allow-Methods", "POST")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
@@ -115,7 +116,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert the user into the database
-	err = db.InsertUser(user)
+	err, idUser := db.InsertUser(user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -123,7 +124,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Generate a JWT token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
+		"user_id": idUser,
 		"exp":     time.Now().Add(time.Hour).Unix(), // Set expiration time
 	})
 
@@ -136,7 +137,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Return the JWT token in the response
 	response := LoginResponse{
-		UserID:       user.ID,
+		UserID:       idUser,
 		SessionToken: tokenString,
 		Expiry:       time.Now().Add(time.Hour),
 	}
@@ -158,7 +159,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	// Handle preflight request
+	//Cors
 	if r.Method == "OPTIONS" {
 		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -167,12 +168,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
-	// Set headers for the main request
 	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
 	w.Header().Set("Access-Control-Allow-Methods", "POST")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
+
 	// Parse the login request from the request body
 	var loginReq LoginRequest
 	err := json.NewDecoder(r.Body).Decode(&loginReq)
@@ -189,7 +189,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "something off", http.StatusUnauthorized)
 		return
 	}
-	if db.CheckPassword(user.Password, password) == false {
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
