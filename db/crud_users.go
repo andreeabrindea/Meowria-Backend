@@ -22,23 +22,22 @@ func InsertUser(user Users) (error, int) {
 		return err, 0
 	}
 
+	if len(user.UserName) < 3 {
+		return fmt.Errorf("username should contain at least 3 characters (letters and digits)"), 0
+	}
+	if IsValidUsername(user.UserName) == false {
+		return fmt.Errorf("invalid username"), 0
+	}
+
+	if isValidEmail(user.Email) == false {
+		return fmt.Errorf("invalid email"), 0
+	}
 	// Check if the email already exists
 	_, err = GetUserByEmail(user.Email)
 	if err == nil {
 		return fmt.Errorf("email already exists"), 0
 	} else if err != nil && err.Error() != "user not found" {
 		return err, 0
-	}
-
-	if isValidEmail(user.Email) == false {
-		return fmt.Errorf("invalid email"), 0
-	}
-
-	if len(user.UserName) < 3 {
-		return fmt.Errorf("username should contain at least 3 characters (letters and digits)"), 0
-	}
-	if IsValidUsername(user.UserName) == false {
-		return fmt.Errorf("invalid username"), 0
 	}
 
 	// Get the next unique ID from the sequence generator
